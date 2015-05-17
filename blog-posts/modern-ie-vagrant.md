@@ -2,11 +2,19 @@
 
 Microsoft, as part of their Modern IE project for developers (now known as Microsoft Edge, their new browser), has released a series of virtual machine images covering everything from IE6 & Windows XP (shudder) all the way up to IE 11 & Windows 10. They've released these in a variety of formats from their own virtualization technology HyperV all the way to Oracle Virtualbox. All of these can be downloaded from http://dev.modern.ie/tools/vms/
 
-Not satisfied with the workflow of downloading these images (all 35GB worth), I set out to leverage Vagrant to make it even easier to get started with these virtual machines. The result is modern-ie-vagrant.
+Not satisfied with the workflow of downloading these images (all 35GB worth), I set out to leverage Vagrant to make it even easier to get started with these virtual machines. The result is [modern-ie-vagrant](https://github.com/markhuber/modern-ie-vagrant).
 
 ##TL;DR
 
-To get started, you'll need [Oracle Virtualbox](http://virtualbox.org) and [Vagrant](https://www.vagrantup.com/) installed. From there all you have to do is clone our git repository at https://github.com/markhuber/modern-ie-vagrant. If you've never used Vagrant before, the process is pretty straight forward. Using your favorite command-line application, work your way into the directory you cloned from GitHub and use any of the following commands.
+To get started, you'll need [Oracle Virtualbox](http://virtualbox.org) and [Vagrant](https://www.vagrantup.com/) installed. 
+
+From there all you have to do is clone our git repository [modern-ie-vagrant](https://github.com/markhuber/modern-ie-vagrant) or you can download it as a zip file [here](https://github.com/markhuber/modern-ie-vagrant/archive/master.zip). 
+
+```bash
+git clone https://github.com/markhuber/modern-ie-vagrant.git
+```
+
+If you've never used Vagrant before, the process is pretty straight forward. Using your favorite command-line application, work your way into the directory you cloned from GitHub and use any of the following commands.
 
 To list the available virtual machines:
 
@@ -63,6 +71,27 @@ For various reasons, I wanted to find a way to host the images in a way that wou
 
 A few google searches later led me to the [vagrant-catalog](https://github.com/vube/vagrant-catalog) project by [Ross Perkins](https://github.com/ross-p) at [vube](http://vubeology.com/). This is a PHP implementation of the structure required by Vagrant. I'm not a PHP or Apache afficianado so I was unsure of how to get this going. This is where a little Docker & Vagrant magic accelerated my process tremendously.
 
-By using a pre-built docker image setup for Apache and PHP, [tutum/apache-php](https://registry.hub.docker.com/u/tutum/apache-php/), I was able to get setup quickly. It minimized my ramp-up to a few configuration changes specific to vagrant-catalog. A few hours later I had created [docker-vagrant-catalog](https://github.com/markhuber/docker-vagrant-catalog) and published it to the Docker Hub Registry as [markhuber/vagrant-catalog](https://registry.hub.docker.com/u/markhuber/vagrant-catalog/). The workflow of connecting the Docker Registry to my GitHub repository meant every commit to master of my repo was automatically built into a Docker container. This was incredibly easy and quick to setup. I was able to test all of this with the Vagrant image [williamyeh/ubuntu-trusty-docker](https://vagrantcloud.com/williamyeh/boxes/ubuntu-trusty64-docker) from [@William-Yeh](https://github.com/William-Yeh). My testing setup can be found in my [modern-ie-vagrant-builder](https://github.com/markhuber/modern-ie-vagrant-builder) project [here](https://github.com/markhuber/modern-ie-vagrant-builder/tree/master/vagrant-catalog-server). By taking a portable approach with Docker and testing my changes in a Vagrant image, It was straight forward to move this setup to a EC2 hosted instance without any issue. 
+By using a pre-built docker image setup for Apache and PHP, [tutum/apache-php](https://registry.hub.docker.com/u/tutum/apache-php/), I was able to get setup quickly. It minimized my ramp-up to a few configuration changes specific to vagrant-catalog. A few hours later I had created [docker-vagrant-catalog](https://github.com/markhuber/docker-vagrant-catalog) and published it to the Docker Hub Registry as [markhuber/vagrant-catalog](https://registry.hub.docker.com/u/markhuber/vagrant-catalog/). 
+
+```Dockerfile
+FROM tutum/apache-php
+
+    RUN apt-get update && apt-get install -yq git && rm -rf /var/lib/apt/lists/*
+    
+    RUN rm -rf /var/www/html && git clone https://github.com/vube/vagrant-catalog /var/www/html
+    
+    COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
+
+    WORKDIR /var/www/html
+    RUN composer update
+    RUN mv config.php.dist config.php
+    RUN rm index.html
+    
+    EXPOSE 80
+    WORKDIR /app
+    CMD ["/run.sh"]
+```
+
+The workflow of connecting the Docker Registry to my GitHub repository meant every commit to master of my repo was automatically built into a Docker container. This was incredibly easy and quick to setup. I was able to test all of this with the Vagrant image [williamyeh/ubuntu-trusty-docker](https://vagrantcloud.com/williamyeh/boxes/ubuntu-trusty64-docker) from [@William-Yeh](https://github.com/William-Yeh). My testing setup can be found in my [modern-ie-vagrant-builder](https://github.com/markhuber/modern-ie-vagrant-builder) project [here](https://github.com/markhuber/modern-ie-vagrant-builder/tree/master/vagrant-catalog-server). By taking a portable approach with Docker and testing my changes in a Vagrant image, It was straight forward to move this setup to a EC2 hosted instance without any issue. 
 
 More details about this workflow are available in this presentation slide [here](https://docs.google.com/presentation/d/1_p4epNSKS2a8NOdqM_pNab5Xa-H3hDwjnzVAt7GK3eQ/edit#slide=id.g9d50a47c9_0_0).
